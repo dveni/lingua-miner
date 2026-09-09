@@ -154,6 +154,27 @@ first time you transcribe. App data lives in your OS's standard folder
 
 If Anki is closed, cards queue up and send themselves when it opens.
 
+## Updating
+
+Open ⚙️ **Settings → Check for updates**. It tells you what's new and updates in
+place.
+
+> **If you installed before 5 September 2026, do this once.** Versions up to
+> 1.33.1 shipped a broken update check: the installer clones with `--depth 1`,
+> and in a shallow clone the command that counts new commits *fails* instead of
+> returning zero — so the app told you that you were up to date when you
+> weren't. Fixing it required shipping a new version, which the broken checker
+> couldn't fetch. In your LinguaMiner folder (`~/LinguaMiner` if you used the
+> one-line installer):
+>
+> ```bash
+> git fetch --unshallow origin main
+> git pull --ff-only origin main
+> ```
+>
+> After that the in-app updater works on its own. See
+> [v1.33.2](https://github.com/thecopybookhare-cmd/lingua-miner/releases/tag/v1.33.2).
+
 ## Usage
 
 **→ [Full walkthrough with clips of every feature](docs/tutorial.md)**
