@@ -7,7 +7,8 @@ import threading
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import urlparse, unquote as url_unquote
+from urllib.parse import unquote as url_unquote
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -98,7 +99,8 @@ async def lifespan(_app):
 
 _log = logging.getLogger("cards")
 
-from . import diagnostics      # noqa: E402
+from . import diagnostics  # noqa: E402
+
 diagnostics.install()          # capturar el log aunque no se arranque por el lanzador
 
 app = FastAPI(title="LinguaMiner", lifespan=lifespan)

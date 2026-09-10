@@ -22,6 +22,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Create venv and install deps
+        id: deps
         run: |
           uv venv --python 3.12
           uv pip install -e . --group dev
@@ -29,5 +30,8 @@ jobs:
       - name: Lint (ruff)
         run: uv run ruff check app/ tests/
 
+      # Corre aunque falle ruff: un error de lint escondió cuatro tests rotos
+      # durante una semana (v1.33.0–v1.33.2), porque pytest nunca llegaba a correr.
       - name: Tests (pytest)
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
         run: uv run pytest tests/ -q
