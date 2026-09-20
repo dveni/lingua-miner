@@ -1,0 +1,18 @@
+title: LinguaMiner
+description: >-
+  Turn the videos you already watch into Anki flashcards. Word-by-word
+  subtitles, one-click mining, twelve languages, and everything runs on
+  your own machine.
+theme: jekyll-theme-primer
+lang: en
+
+# Notas internas: no forman parte del sitio.
+exclude:
+  - plans/
+  - specs/
+  - roadmap.md
+  - reader.md
+
+defaults:
+  - scope: { path: "" }
+    values: { layout: default }
