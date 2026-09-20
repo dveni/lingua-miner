@@ -2,7 +2,7 @@
 title: Learn languages from the videos you love
 ---
 
-# LinguaMiner
+# Learn languages from the videos you love
 
 **Turn the videos you already watch into Anki flashcards.** Everything runs on
 your own machine — no accounts, no subscriptions, no API keys, and nothing you
