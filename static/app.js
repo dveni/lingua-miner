@@ -395,8 +395,11 @@ function uploadWithProgress(url, fd) {
 let PENDING_SEEK = 0;                    // reanudar / saltar desde búsqueda
 async function openSession(sid, opts = {}) {
   const s = await api("/api/sessions/" + sid);
+  document.dispatchEvent(new Event("expression-reset"));
   SESSION = s; SEGS = s.transcript; STATUS = s.word_statuses || {};
   CUR = -1; POP = null; HOVER = null; PINNED = false; $("word-pop").hidden = true;
+  $("card-panel").hidden = true;
+  AUDIO.reset();
   setOffset(0);                         // el desfase es por sesión
   // a dónde saltar al cargar: línea buscada > reanudar donde se dejó > inicio
   PENDING_SEEK = 0;
@@ -425,10 +428,12 @@ async function openSession(sid, opts = {}) {
     $("reader-auto-cb").checked = !!SETTINGS?.reader_mark_known;
     READ_PAGE = Math.floor((s.resume_pos || 0) / READ_PER_PAGE);
     if (opts.seg != null) READ_PAGE = Math.floor(opts.seg / READ_PER_PAGE);
+    AUDIO.sync();
     renderReader();
     return;
   }
   $("home").hidden = true; $("player").hidden = false; $("reader").hidden = true;
+  AUDIO.sync();
   STALLS = [];
   if (s.source_type === "stream") {
     await loadStreamUrl(sid, 0);        // URL fresca (las de yt-dlp caducan)
@@ -502,6 +507,7 @@ async function setVideoSrc(url, isHls) {
 // a hls.js descargando segmentos indefinidamente. Hay dos salidas (volver a la
 // biblioteca y abrir un libro), así que el apagado va en un solo sitio.
 function stopPlayback() {
+  document.dispatchEvent(new Event("expression-reset"));
   try { V.pause(); } catch (e) {}
   if (HLS) { HLS.destroy(); HLS = null; }
   V.removeAttribute("src");
@@ -513,13 +519,16 @@ async function loadStreamUrl(sid, height) {
   const r = await api(`/api/sessions/${sid}/stream-url?height=${height || 0}`);
   hideProgress();
   if (r.error) { showProgress(1, errMsg(r), true); return; }
+  if (SESSION?.id === sid && typeof r.is_audio === "boolean") {
+    SESSION.is_audio = r.is_audio; AUDIO.sync();
+  }
   const at = V.currentTime || 0, playing = !V.paused;
   STREAM_HEIGHTS = r.is_hls ? [] : (r.heights || []);   // HLS: ABR automático
   STREAM_H = r.height || 0;
   await setVideoSrc(r.url, r.is_hls);
   if (height) {   // cambio de calidad: preservar el punto
     V.addEventListener("loadedmetadata", () => {
-      V.currentTime = at; if (playing) V.play();
+      V.currentTime = at; if (playing) playMedia();
     }, { once: true });
   }
   renderQualityMenu();
@@ -559,6 +568,7 @@ $("back").onclick = () => {
   $("quality-menu").hidden = true;
   $("video-col").classList.remove("fake-fs");
   $("player").hidden = true; $("home").hidden = false;
+  AUDIO.reset();
   $("card-panel").hidden = true; $("word-pop").hidden = true;
   $("comp-chip").hidden = true; $("rec-chip").hidden = true;
   $("lib-search").value = ""; $("search-results").hidden = true;
@@ -735,12 +745,14 @@ function setOffset(v) {
 }
 function bumpOffset(d) { setOffset(OFFSET + d); }
 function toggleBrowser() {
+  if (AUDIO.enabled) { AUDIO.seek(); return; }
   const p = $("side-panel");
   p.hidden = !p.hidden;
   $("browser-btn").classList.toggle("on", !p.hidden);
   if (!p.hidden) scrollBrowserTo(CUR);
 }
 function toggleFullscreen() {
+  if (AUDIO.enabled) return;
   const col = $("video-col");
   if (document.fullscreenElement) { document.exitFullscreen(); return; }
   if (col.classList.contains("fake-fs")) { col.classList.remove("fake-fs"); $("fs-btn").classList.remove("alt"); return; }
@@ -793,8 +805,8 @@ function tokenHtml(seg) {
     const rec = (tier && isRecWord(t)) ? " rec-w" + tier : "";
     const cls = (joined ? " nsr" : "") + (prevJoined ? " nsl" : "") + rec;
     const html = t.is_word
-      ? `<span class="t st-${st}${cls}" data-l="${esc(t.lemma)}">${esc(t.t)}</span>`
-      : `<span>${esc(t.t)}</span>`;
+      ? `<span class="t st-${st}${cls}" data-l="${esc(t.lemma)}" data-token-index="${k}">${esc(t.t)}</span>`
+      : `<span data-token-index="${k}">${esc(t.t)}</span>`;
     prevJoined = joined;
     // «ws» = espaciado original; sin él, espacio antes de cada palabra (legado)
     if (hasWs) return html + (t.ws ? " " : "");
@@ -803,13 +815,28 @@ function tokenHtml(seg) {
 }
 
 function bindTokenEvents(container, segIndex) {
+  container._touchSelection?.destroy();
+  const seg = SEGS[segIndex];
+  const touch = container._touchSelection = TouchSelection.bind(container, {
+    tokens: seg.tokens || [],
+    onSelect: (phrase, anchor) => {
+      if (SEGS[segIndex] === seg && container.isConnected && anchor.isConnected && container.contains(anchor)) {
+        openPopup(segIndex, phrase, anchor, true);
+      }
+    },
+    onInteraction: active => {
+      if (active) { clearTimeout(HOVER_TIMER); clearTimeout(CLOSE_TIMER); HOVER = null; }
+      document.dispatchEvent(new CustomEvent('expression-interaction', { detail: { active } }));
+    },
+  });
   for (const tok of container.querySelectorAll(".t")) {
     tok.onclick = (ev) => {
       ev.stopPropagation();
       const sel = window.getSelection().toString().trim();
       openPopup(segIndex, sel || tok.textContent, tok, true);
     };
-    tok.onmouseenter = () => {
+    tok.onmouseenter = (ev) => {
+      if (touch.ignoreHover(ev)) return;
       HOVER = { segIndex, text: tok.textContent, lemma: tok.dataset.l, el: tok };
       clearTimeout(CLOSE_TIMER);
       if (PINNED) return;
@@ -817,7 +844,8 @@ function bindTokenEvents(container, segIndex) {
       HOVER_TIMER = setTimeout(
         () => openPopup(segIndex, tok.textContent, tok, false), 180);
     };
-    tok.onmouseleave = () => {
+    tok.onmouseleave = (ev) => {
+      if (touch.ignoreHover(ev)) return;
       if (HOVER && HOVER.el === tok) HOVER = null;
       clearTimeout(HOVER_TIMER);
       if (!PINNED && !$("word-pop").hidden) scheduleClose();
@@ -840,9 +868,15 @@ function renderSegs() {
   }).join("");
   for (const div of el.querySelectorAll(".seg")) {
     const i = +div.dataset.i;
-    div.querySelector(".time").onclick = () => { $("video").currentTime = SEGS[i].start + OFFSET; $("video").play(); };
+    div.querySelector(".time").onclick = (ev) => { ev.stopPropagation(); gotoSeg(i); };
+    div.onclick = () => { if (AUDIO.enabled) gotoSeg(i); };
+    div.tabIndex = 0;
+    div.onkeydown = ev => {
+      if (ev.key === "Enter") { ev.preventDefault(); gotoSeg(i); }
+    };
     bindTokenEvents(div, i);
   }
+  AUDIO.refresh();
 }
 
 function renderOverlay() {
@@ -881,6 +915,7 @@ async function fillDual(i) {
 }
 
 function scrollBrowserTo(i) {
+  if (AUDIO.enabled) { AUDIO.changed(i); return; }
   const panel = $("side-panel");
   if (panel.hidden || i < 0) return;
   const row = $("seg-" + i);
@@ -890,7 +925,13 @@ function scrollBrowserTo(i) {
 
 // ---------- video ----------
 const V = $("video");
-V.addEventListener("click", () => { V.paused ? V.play() : V.pause(); });
+function playMedia() {
+  return V.play().catch(err => {
+    // A rapid seek/pause may legitimately interrupt a pending play request.
+    if (err.name !== "AbortError") toast(err.message, "err");
+  });
+}
+V.addEventListener("click", () => { V.paused ? playMedia() : V.pause(); });
 V.addEventListener("play", () => { $("play-btn").classList.add("alt"); RESUME = false; });
 V.addEventListener("pause", () => { $("play-btn").classList.remove("alt"); });
 
@@ -923,7 +964,13 @@ $("video-wrap").addEventListener("mouseleave", () => {
 V.addEventListener("play", wakeControls);
 V.addEventListener("pause", wakeControls);
 V.addEventListener("seeked", wakeControls);   // saltos con A/D también los muestran
-V.addEventListener("loadedmetadata", () => { $("time-dur").textContent = fmtTime(V.duration || 0); });
+function syncMediaDuration() {
+  const finite = Number.isFinite(V.duration) && V.duration > 0;
+  $("time-dur").textContent = finite ? fmtTime(V.duration) : "—";
+  $("seek").disabled = !finite;
+}
+V.addEventListener("loadedmetadata", syncMediaDuration);
+V.addEventListener("durationchange", syncMediaDuration);
 
 // reanudar / saltar: aplicar el punto pendiente cuando el video ya tiene duración
 V.addEventListener("loadedmetadata", () => {
@@ -953,7 +1000,7 @@ function saveResume(force) {
 V.addEventListener("timeupdate", () => saveResume(false));
 V.addEventListener("pause", () => saveResume(true));
 window.addEventListener("pagehide", () => saveResume(true));
-$("play-btn").onclick = () => { V.paused ? V.play() : V.pause(); };
+$("play-btn").onclick = () => { V.paused ? playMedia() : V.pause(); };
 $("prev-btn").onclick = () => prevSeg();
 $("next-btn").onclick = () => nextSeg();
 $("replay-btn").onclick = () => replaySeg();
@@ -974,7 +1021,8 @@ function gotoSeg(i) {
   // actualizar CUR ya: si no, el timeupdate con auto-pausa cree que nos
   // "escapamos" del segmento viejo y rebota al final de este.
   setCur(j);
-  V.play();
+  AUDIO.seek();
+  playMedia();
 }
 // En huecos entre subtítulos CUR = -1: navegar por tiempo, nunca al segmento 0.
 function nextSeg() {
@@ -994,19 +1042,22 @@ function prevSeg() {
 }
 function replaySeg() {
   if (CUR < 0) return;
+  AUDIO.seek();
   V.currentTime = SEGS[CUR].start + OFFSET + 0.01;
-  V.play();
+  playMedia();
 }
 
 let seeking = false;
 $("seek").oninput = () => { seeking = true; };
 $("seek").onchange = () => {
-  V.currentTime = ($("seek").value / 1000) * (V.duration || 0);
+  if (!Number.isFinite(V.duration) || V.duration <= 0) { seeking = false; return; }
+  V.currentTime = ($("seek").value / 1000) * V.duration;
   seeking = false;
   // actualizar CUR ya: si no, la auto-pausa cree que "escapamos" del segmento
   // antiguo y devuelve la reproducción al punto de partida.
   const te = V.currentTime - OFFSET;
   setCur(SEGS.findIndex((s) => te >= s.start && te <= s.end));
+  AUDIO.seek();
 };
 
 // Auto-pausa sin rebote: al reanudar aparcados en el final del segmento (ahí
@@ -1019,7 +1070,8 @@ V.addEventListener("play", () => {
 
 V.addEventListener("timeupdate", () => {
   const t = V.currentTime;
-  if (!seeking && V.duration) $("seek").value = Math.round((t / V.duration) * 1000);
+  if (!seeking && Number.isFinite(V.duration) && V.duration > 0)
+    $("seek").value = Math.round((t / V.duration) * 1000);
   $("time-cur").textContent = fmtTime(t);
   const te = t - OFFSET;                 // tiempo en el reloj de los subtítulos
   const i = SEGS.findIndex((s) => te >= s.start && te <= s.end);
@@ -1029,7 +1081,7 @@ V.addEventListener("timeupdate", () => {
     return;
   }
   // condensado: en un hueco sin diálogo, saltar al inicio del próximo segmento
-  if (CONDENSED && !V.paused && !AUTOPAUSE && i < 0) {
+  if (CONDENSED && !V.paused && !AUTOPAUSE && i < 0 && SEGS.length) {
     const nxt = SEGS.find((s) => s.start > te);
     if (nxt) { V.currentTime = nxt.start + OFFSET; }
     else if (te > SEGS[SEGS.length - 1].end) { V.pause(); }
@@ -1216,7 +1268,7 @@ function closePopup() {
   $("word-pop").hidden = true;
   POP = null; PINNED = false;
   clearTimeout(HOVER_TIMER); clearTimeout(CLOSE_TIMER);
-  if (RESUME) { RESUME = false; V.play(); }
+  if (RESUME) { RESUME = false; playMedia(); }
 }
 $("wp-close").onclick = closePopup;
 const WP = $("word-pop");
@@ -1226,7 +1278,7 @@ document.addEventListener("click", (e) => {
   if (!$("word-pop").hidden && !$("word-pop").contains(e.target) && !e.target.classList?.contains("t"))
     closePopup();
 });
-$("wp-replay").onclick = () => { if (POP) { V.currentTime = SEGS[POP.segIndex].start + OFFSET; V.play(); } };
+$("wp-replay").onclick = () => { if (POP) { V.currentTime = SEGS[POP.segIndex].start + OFFSET; playMedia(); } };
 $("wp-card").onclick = () => mineFromPopup();
 $("wp-edit").onclick = () => editFromPopup();
 $("wp-say").onclick = async () => {
@@ -1356,7 +1408,7 @@ document.addEventListener("keydown", (e) => {
   if ($("player").hidden || !$("settings-view").hidden || CAPTURING) return;
   const k = e.key.toLowerCase();
   const statusKeys = { "1": "unknown", "2": "learning", "3": "known", "4": "ignored", "5": "tracking" };
-  if (e.key === " ") { e.preventDefault(); V.paused ? V.play() : V.pause(); return; }
+  if (e.key === " ") { e.preventDefault(); V.paused ? playMedia() : V.pause(); return; }
   if (statusKeys[e.key]) {
     const lemma = (POP && !$("word-pop").hidden) ? POP.lemma : HOVER?.lemma;
     if (lemma) setStatus(lemma, statusKeys[e.key]);
@@ -2249,6 +2301,15 @@ function nextRec() {
   gotoSeg(nxt);
 }
 $("rec-chip").onclick = () => nextRec();
+
+// Presentation observes the shared clock; it never creates a second player.
+const AUDIO = AudioPlayer.mount({
+  session: () => SESSION, current: () => CUR,
+  renderCurrent: (el, i) => {
+    el.innerHTML = tokenHtml(SEGS[i]);
+    bindTokenEvents(el, i);
+  },
+});
 
 // ---------- init ----------
 loadSettings();

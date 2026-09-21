@@ -1,0 +1,34 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const modulePath = path.join(__dirname, '../../static/audio-player.js');
+test('mobile audio mode requires explicit audio metadata and matching viewport', () => {
+  assert.ok(fs.existsSync(modulePath), 'audio presentation module exists');
+  const {isAudioMode} = require(modulePath);
+  assert.equal(isAudioMode({is_audio: true}, true), true);
+  assert.equal(isAudioMode({is_audio: false}, true), false);
+  assert.equal(isAudioMode({is_audio: true}, false), false);
+  assert.equal(isAudioMode({media_url: 'video.mp3'}, true), false);
+  assert.equal(isAudioMode({source_type: 'text', is_audio: true}, true), false);
+});
+test('follow changes only on new subtitle, pauses for browse or blockers, restores explicitly', () => {
+  const {FollowState} = require(modulePath);
+  const f = new FollowState();
+  assert.equal(f.change(2), true);
+  assert.equal(f.change(2), false);
+  f.block('finger', true);
+  assert.equal(f.change(3), false);
+  f.block('popup', true);
+  f.block('finger', false);
+  assert.equal(f.canFollow, false);
+  f.block('popup', false);
+  assert.equal(f.canFollow, true);
+  f.browse();
+  assert.equal(f.change(4), false);
+  f.resume();
+  assert.equal(f.canFollow, true);
+  f.reset();
+  assert.equal(f.index, -1);
+  assert.equal(f.canFollow, true);
+});

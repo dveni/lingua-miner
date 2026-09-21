@@ -1,6 +1,9 @@
 """ffmpeg helpers: card audio cut, video frame, browser-safe remux."""
+import json
 import shutil
 import subprocess
+import time
+from functools import lru_cache
 from pathlib import Path
 
 from . import jobs
@@ -145,6 +148,49 @@ def cut_audio(src, start, end, out, pad=0.25, trim=False):
 
 def snapshot(src, ts, out):
     _run(frame_cmd(src, ts, out), timeout=45)
+
+
+def is_audio_only(src: str | Path) -> bool:
+    """Probe tracks with a bounded timeout and bounded in-memory cache.
+
+    Local keys include canonical path, nanosecond mtime and size. Direct HTTP
+    URLs use a four-minute time bucket (including failures), not a network
+    probe on every read. No extension heuristics, even for remuxed mp4 audio.
+    """
+    if str(src).lower().startswith(("http://", "https://")):
+        return _audio_probe(str(src), int(time.monotonic() // 240), -1)
+    try:
+        path = Path(src).resolve()
+        if not path.is_file():
+            return False
+        stat = path.stat()
+    except (OSError, ValueError):
+        return False
+    return _audio_probe(str(path), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=512)
+def _audio_probe(src: str, mtime_ns: int, size: int) -> bool:
+    """Require audio and no real video; attached cover art is not video.
+
+    Only use installed/already-resolved ffprobe: a metadata read must never
+    trigger static-ffmpeg's potentially unbounded binary download.
+    """
+    try:
+        p = subprocess.run(
+            [shutil.which("ffprobe") or _EXES.get("ffprobe", "ffprobe"),
+             "-v", "error", "-show_entries",
+             "stream=codec_type:stream_disposition=attached_pic", "-of", "json", str(src)],
+            capture_output=True, text=True, timeout=5)
+        if p.returncode:
+            return False
+        streams = json.loads(p.stdout)["streams"]
+        return (any(s.get("codec_type") == "audio" for s in streams)
+                and not any(s.get("codec_type") == "video"
+                            and s.get("disposition", {}).get("attached_pic") != 1
+                            for s in streams))
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError):
+        return False
 
 
 def duration(src: str) -> float:

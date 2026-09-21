@@ -7,3 +7,6 @@ __pycache__/
 .claude/
 .playwright-mcp/
 .DS_Store
+.qa-*/
+.qa-*.log
+.qa-*.json

@@ -975,3 +975,17 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   #reader-page { padding: 20px 18px; font-size: 17.5px; line-height: 1.8; }
   #reader-title { max-width: 34%; }
 }
+
+/* Touch expression selection */
+/* Applied by touch input only; mouse pointerdown restores native text drag. */
+.touch-selection-touch .t {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Outline does not replace vocabulary borders or recommendation backgrounds. */
+.touch-selection-touch .t.touch-expression-selected {
+  outline: 2px solid var(--vio);
+  outline-offset: 2px;
+}
+/* End touch expression selection */

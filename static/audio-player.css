@@ -1,0 +1,59 @@
+/* Opt-in presentation: the existing video and desktop layouts are untouched. */
+.audio-only { display: none; }
+body.audio-mobile { overflow: hidden; }
+.audio-mobile > header { display: none; }
+.audio-mobile #player {
+  position: fixed; inset: 0; width: 100%; max-width: none; margin: 0;
+  height: 100dvh; box-sizing: border-box;
+  padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(10px, env(safe-area-inset-left));
+  display: flex; flex-direction: column; gap: 8px; background: var(--bg);
+}
+.audio-mobile #player-top { flex: none; gap: 8px; margin: 0; }
+.audio-mobile .audio-only { display: inline-flex; }
+.audio-mobile #audio-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; font-size: .85rem; color: var(--dim); }
+.audio-mobile #back { font-size: .8rem; padding-inline: 8px; }
+.audio-mobile #transcribe-bar { display: none; width: 100%; max-height: 25dvh; overflow: auto; }
+.audio-mobile #transcribe-bar select { min-width: 0; max-width: 100%; }
+.audio-mobile .audio-tools-open #transcribe-bar,
+.audio-mobile .audio-no-transcript #transcribe-bar { display: flex; }
+.audio-mobile #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.audio-mobile #video-col { display: contents; }
+.audio-mobile #video-wrap { order: 3; flex: none; box-shadow: none; border-radius: 0; overflow: visible; }
+.audio-mobile #video, .audio-mobile #overlay-sub, .audio-mobile #help-line,
+.audio-mobile #quality-wrap, .audio-mobile #fs-btn, .audio-mobile #browser-btn,
+.audio-mobile #dual-btn, .audio-mobile #panel-tabs { display: none; }
+.audio-mobile #side-panel {
+  order: 1; flex: 1; min-height: 0; width: 100%; max-height: none;
+  box-sizing: border-box; padding: 16px 12px; border: 0; background: var(--panel);
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain;
+  scroll-behavior: auto; overflow-anchor: none;
+}
+.audio-mobile .seg { font-size: clamp(19px, 4.8vw, 25px); line-height: 1.8; padding: 16px 8px; margin-block: 4px; color: var(--dim); overflow-wrap: anywhere; }
+.audio-mobile .seg.active { color: var(--fg); background: var(--vio-soft); border-radius: 12px; }
+.audio-mobile .seg .time { display: block; width: fit-content; font-size: .7rem; min-height: 28px; padding: 4px; }
+.audio-mobile #subs .t { padding-block: 4px; border-radius: 4px; }
+.audio-mobile #controls, .audio-mobile #video-wrap.hide-ctl #controls {
+  position: static; opacity: 1; transform: none; pointer-events: auto;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 2px;
+  padding: 4px; background: var(--panel); backdrop-filter: none; transition: none;
+}
+.audio-mobile #seek-row { flex: 0 0 100%; order: -1; width: 100%; min-width: 0; }
+.audio-mobile #seek-wrap { min-width: 0; }
+.audio-mobile #seek { min-width: 0; height: 32px; width: 100%; }
+.audio-mobile #controls .icon, .audio-mobile #audio-follow,
+.audio-mobile #audio-tools, .audio-mobile #back { min-height: 44px; min-width: 44px; }
+.audio-mobile #controls .icon { padding-inline: 10px; }
+.audio-mobile #play-btn { background: var(--vio-soft); }
+.audio-mobile #offset-ctl { margin-left: 0; }
+.audio-mobile #audio-follow { font-size: .75rem; padding: 6px; }
+.audio-mobile #audio-follow.on { color: var(--vio); }
+.audio-mobile #audio-current { order: 2; flex: none; background: var(--panel); border-left: 3px solid var(--vio); padding: 8px 12px; max-height: 25dvh; overflow: auto; font-size: 1rem; line-height: 1.7; }
+.audio-mobile #card-panel { width: auto; height: auto; position: fixed; z-index: 45; inset: max(12px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom)); overflow: auto; margin: 0; }
+.audio-mobile #word-pop { max-height: 48dvh; overflow-y: auto; max-width: calc(100vw - 16px); }
+.audio-mobile :focus-visible { outline: 2px solid var(--vio); outline-offset: 2px; }
+@media (max-height: 500px) {
+  .audio-mobile #player { gap: 4px; }
+  .audio-mobile #controls { padding-block: 0; }
+  .audio-mobile #controls #offset-ctl { display: none; }
+  .audio-mobile .seg { padding-block: 8px; font-size: 19px; }
+}

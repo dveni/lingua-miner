@@ -530,11 +530,17 @@ def session_detail(sid: str):
                              nlp.TOK_VERSION)
         s["tok_version"] = nlp.TOK_VERSION
     s["word_statuses"] = db.word_statuses(CON, _lang())
+    # source_type is origin, not media kind (downloads can be audio too).
+    s["is_audio"] = (media.is_audio_only(s["media_path"])
+                     if s["source_type"] not in ("stream", "text") else False)
     if s["source_type"] == "url":
         s["media_url"] = s["media_path"]
         s["is_hls"] = ".m3u8" in s["media_path"].lower()   # enlace HLS directo
     elif s["source_type"] == "stream":
         s["media_url"] = ""            # el frontend pide /stream-url (URL fresca)
+        # Never resolve a page just to read its details. Cold/expired metadata
+        # is unknown; /stream-url supplies the authoritative resolved flag.
+        s["is_audio"] = bool((stream._cache_get(s["page_url"]) or {}).get("is_audio"))
     else:
         s["media_url"] = "/media-file/" + sid
     return s
@@ -807,8 +813,13 @@ def session_stream_url(sid: str, height: int = 0):
                     "el enlace ya no está disponible o cambió", 502)
     if height and height != s["stream_height"]:
         db.set_stream_height(CON, sid, height)
+    # stream_url already resolved this page and populated the TTL cache.
+    # Reading metadata here preserves its three-item tuple contract without
+    # a second resolver/network request.
+    resolved = stream._cache_get(s["page_url"]) or {}
     return {"url": url, "height": height or s["stream_height"],
-            "heights": heights, "is_hls": is_hls}
+            "heights": heights, "is_hls": is_hls,
+            "is_audio": bool(resolved.get("is_audio"))}
 
 
 def _find_sidecar_subs(path: Path) -> Path | None:

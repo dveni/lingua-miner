@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
 <link rel="stylesheet" href="/style.css?v=1.33.2">
+<link rel="stylesheet" href="/audio-player.css?v=1.33.2">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -148,6 +149,8 @@
 <main id="player" hidden>
   <div id="player-top">
     <button id="back" data-i18n="pl.back">← Biblioteca</button>
+    <span id="audio-title" class="audio-only"></span>
+    <button id="audio-tools" class="audio-only" aria-expanded="false" aria-controls="transcribe-bar" title="Herramientas" data-i18n-title="audio.tools">⋯</button>
     <div id="transcribe-bar">
       <select id="model-select">
         <option value="catala-large">Whisper large-v3 catalán (AINA) — máxima calidad</option>
@@ -188,10 +191,11 @@
           <span id="time-cur" class="tlabel">0:00</span>
           <div id="seek-wrap">
             <div id="seek-marks"></div>
-            <input type="range" id="seek" min="0" max="1000" value="0">
+            <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Posición de reproducción" title="Posición de reproducción" data-i18n-title="audio.position">
           </div>
           <span id="time-dur" class="tlabel">0:00</span>
         </div>
+        <button id="audio-follow" class="audio-only" aria-pressed="true" data-i18n="audio.follow">Seguir</button>
         <div id="quality-wrap">
           <button class="icon" id="quality-btn" title="Calidad de streaming" data-i18n-title="tip.quality" hidden>Auto</button>
           <div id="quality-menu" hidden></div>
@@ -280,7 +284,8 @@
       </div>
 
     </div>
-    <aside id="side-panel" hidden>
+    <div id="audio-current" hidden><div id="audio-current-text"></div></div>
+    <aside id="side-panel" tabindex="0" hidden>
       <div id="panel-tabs">
         <button id="tab-subs" class="ptab on" data-i18n="panel.subs">Subtítulos</button>
         <button id="tab-words" class="ptab" data-i18n="panel.words">Palabras</button>
@@ -513,6 +518,8 @@
   }
 </script>
 <script src="/i18n.js?v=1.33.2"></script>
+<script src="/audio-player.js?v=1.33.2"></script>
+<script src="/touch-selection.js?v=1.33.2"></script>
 <script src="/app.js?v=1.33.2"></script>
 </body>
 </html>

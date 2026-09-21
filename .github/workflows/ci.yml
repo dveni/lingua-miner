@@ -27,6 +27,13 @@ jobs:
           uv venv --python 3.12
           uv pip install -e . --group dev
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Frontend logic (no npm dependencies)
+        run: node --test tests/frontend/*.test.cjs
+
       - name: Lint (ruff)
         run: uv run ruff check app/ tests/
 
