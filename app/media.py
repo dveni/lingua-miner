@@ -136,6 +136,23 @@ def download_window(src: str, start: float, dur: float, out: str,
          timeout=timeout)
 
 
+def transcription_chunk(src: str, start: float, duration: float, out: Path) -> None:
+    """Decode one bounded mono PCM window for Whisper.
+
+    Long recordings are never decoded into one large in-memory Whisper input.
+    The caller consumes and discards each file before creating the next one.
+    """
+    _run([_exe("ffmpeg"), "-y", "-ss", str(round(start, 3)), "-i", src,
+          "-t", str(round(duration, 3)), "-vn", "-ac", "1", "-ar", "16000",
+          "-c:a", "pcm_s16le", str(out)], timeout=600)
+
+
+def transcription_source(src: str, out: Path) -> None:
+    """Localize a remote source in one pass before a long chunked job."""
+    _run([_exe("ffmpeg"), "-y", "-i", src, "-vn", "-ac", "1", "-ar", "16000",
+          "-c:a", "pcm_s16le", str(out)], timeout=7200)
+
+
 # Sin timeout, una URL de stream caducada deja a ffmpeg colgado minutos y
 # bloquea la biblioteca (miniaturas) o el minado enteros.
 def _run(cmd: list[str], timeout: float = 90):

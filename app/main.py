@@ -895,8 +895,22 @@ def do_transcribe(sid: str, req: TranscribeReq):
             db.update_transcript(CON, sid, json.dumps(segs), "-", "srt",
                                  nlp.TOK_VERSION)
         else:
-            segs = T.transcribe(jid, s["media_path"], req.model,
-                                s["duration_secs"] or 0)
+            duration = s["duration_secs"] or 0
+            source = s["media_path"]
+            localize = False
+            if s.get("source_type") == "stream" and duration > T.CHUNK_SECONDS:
+                source, _, _ = stream.stream_url(
+                    s["page_url"], s.get("stream_height") or 0)
+                if not source:
+                    raise jobs.JobError(
+                        "err.link_gone",
+                        "el enlace ya no está disponible o cambió")
+                localize = True
+            if localize:
+                segs = T.transcribe(jid, source, req.model, duration,
+                                    localize=True)
+            else:
+                segs = T.transcribe(jid, source, req.model, duration)
             db.update_transcript(CON, sid, json.dumps(segs), req.model,
                                  "whisper", nlp.TOK_VERSION)
         return {"segments": len(segs)}

@@ -383,3 +383,28 @@ def test_sidecar_transcription_still_updates_session(api, monkeypatch, tmp_path)
     assert job["status"] == "done"
     assert job["result"] == {"segments": 1}
     assert main.db.get_session(main.CON, sid)["srt_source"] == "srt"
+
+
+def test_long_stream_transcription_refreshes_and_localizes_source(api, monkeypatch):
+    import app.main as main
+    from app import transcribe
+
+    sid = main.db.create_session(
+        main.CON, title="Remote", language="ca", source_type="stream",
+        media_path="https://cdn.example/stale", page_url="https://page.example/item",
+        stream_height=720, srt_source="none", model_size="-", duration_secs=901,
+        transcript_json="[]")
+    monkeypatch.setattr(main.stream, "stream_url",
+                        lambda page, height: ("https://cdn.example/fresh", [], False))
+    observed = []
+
+    def work(jid, path, model, duration, *, localize=False):
+        observed.append((path, duration, localize))
+        return []
+
+    monkeypatch.setattr(transcribe, "transcribe", work)
+
+    response = api.post(f"/api/sessions/{sid}/transcribe", json={"model": "small"})
+    assert response.status_code == 200
+    assert wait_done(response.json()["job_id"])["status"] == "done"
+    assert observed == [("https://cdn.example/fresh", 901, True)]
