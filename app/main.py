@@ -872,7 +872,7 @@ def do_transcribe(sid: str, req: TranscribeReq):
     s = db.get_session(CON, sid)
     if not s:
         return JSONResponse({"error": "not found"}, status_code=404)
-    if not req.use_sidecar and req.model not in languages.profile()["whisper_models"]:
+    if not req.use_sidecar and req.model not in languages.PROFILES[s["language"]]["whisper_models"]:
         return _err("err.model_lang",
                     f"modelo «{req.model}» no disponible para este idioma",
                     args=(req.model,))
@@ -901,7 +901,10 @@ def do_transcribe(sid: str, req: TranscribeReq):
                                  "whisper", nlp.TOK_VERSION)
         return {"segments": len(segs)}
 
-    return {"job_id": jobs.start(work, label=label)}
+    jid, duplicate = jobs.start_transcription(
+        work, session_id=sid, title=s["title"], model=req.model,
+        language=s["language"])
+    return {"job_id": jid, **({"already_running": True} if duplicate else {})}
 
 
 @app.post("/api/sessions/{sid}/condensed")
@@ -936,6 +939,11 @@ def do_condensed(sid: str):
                 "seconds": round(dur), "total": round(s["duration_secs"] or 0)}
 
     return {"job_id": jobs.start(work, label="condensed")}
+
+
+@app.get("/api/transcriptions")
+def transcription_jobs():
+    return {"jobs": jobs.transcriptions(languages.active_code())}
 
 
 @app.get("/api/jobs/{jid}")

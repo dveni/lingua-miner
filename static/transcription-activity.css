@@ -1,0 +1,22 @@
+#transcription-activity { flex: none; }
+#transcription-toggle { min-width: 44px; min-height: 44px; position: relative; padding: 10px; }
+#transcription-toggle.working { color: var(--vio); background: var(--vio-soft); }
+#transcription-count { font-size: .65rem; min-width: 15px; border-radius: 8px; background: var(--vio); color: var(--bg); position: absolute; right: 0; top: 0; }
+#transcription-panel {
+  position: fixed; z-index: 60; right: max(12px, env(safe-area-inset-right));
+  width: min(380px, calc(100vw - 24px)); box-sizing: border-box;
+  background: var(--panel); color: var(--fg); border: 1px solid var(--line);
+  box-shadow: 0 12px 40px #0009; border-radius: 14px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 16px; text-align: left;
+}
+.transcription-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#transcription-heading { font-size: 1rem; margin: 0; }
+#transcription-close { min-width: 44px; min-height: 44px; }
+#transcription-list { list-style: none; margin: 0; padding: 0; }
+#transcription-list li { border-top: 1px solid var(--line); padding-block: 12px; }
+.transcription-name { display: block; width: 100%; min-height: 44px; text-align: left; border: 0; background: transparent; overflow-wrap: anywhere; padding: 4px 0; }
+.transcription-status { font-size: .85rem; margin-block: 4px; }
+#transcription-list progress { width: 100%; height: 6px; accent-color: var(--vio); }
+#transcription-list small, #transcription-note, #transcription-empty { display: block; font-size: .75rem; color: var(--dim); overflow-wrap: anywhere; }
+#transcription-list [data-status="error"] .transcription-status, #transcription-offline { color: var(--red); }
+#transcription-panel :focus-visible, #transcription-toggle:focus-visible { outline: 2px solid var(--vio); outline-offset: 2px; }

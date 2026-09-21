@@ -4,6 +4,8 @@ Un perfil es activable cuando tiene traductor validado (translate_repo).
 El francés queda preparado pero inactivo hasta validar su traductor →es.
 """
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 from . import config
 
@@ -445,7 +447,23 @@ def activable() -> list[str]:
     return [c for c in PROFILES if available(c)]
 
 
+_CODE_OVERRIDE: ContextVar[str | None] = ContextVar("study_language", default=None)
+
+
+@contextmanager
+def using_language(code: str):
+    """Pin study language for this execution context without changing settings."""
+    token = _CODE_OVERRIDE.set(code)
+    try:
+        yield
+    finally:
+        _CODE_OVERRIDE.reset(token)
+
+
 def active_code() -> str:
+    override = _CODE_OVERRIDE.get()
+    if override is not None:
+        return override
     try:
         s = json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
         code = s.get("language", "ca")

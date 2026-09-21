@@ -397,6 +397,7 @@ async function openSession(sid, opts = {}) {
   const s = await api("/api/sessions/" + sid);
   document.dispatchEvent(new Event("expression-reset"));
   SESSION = s; SEGS = s.transcript; STATUS = s.word_statuses || {};
+  TRANSCRIPTIONS.syncButton();
   CUR = -1; POP = null; HOVER = null; PINNED = false; $("word-pop").hidden = true;
   $("card-panel").hidden = true;
   AUDIO.reset();
@@ -577,18 +578,19 @@ $("back").onclick = () => {
 };
 
 $("transcribe-btn").onclick = async () => {
-  const btn = $("transcribe-btn");
-  if (btn.disabled) return;                 // ya hay una transcripción en curso
-  btn.disabled = true;
+  const btn = $("transcribe-btn"), sid = SESSION?.id;
+  if (btn.disabled || !sid) return;
+  TRANSCRIPTIONS.setSubmitting(sid, true);
   try {
     const model = $("model-select").value;
-    const r = await api(`/api/sessions/${SESSION.id}/transcribe`,
+    const r = await api(`/api/sessions/${sid}/transcribe`,
       { method: "POST", body: JSON.stringify({ model }) });
     if (r.error) { toast(errMsg(r), "err"); return; }
-    if (r.already_running) toast(t("tr.already"));
-    const res = await pollJob(r.job_id, t("job.tr_start"));
-    if (res) openSession(SESSION.id);
-  } finally { btn.disabled = false; }
+    // The top-bar activity list owns progress. Never reopen whatever session
+    // happens to be active when a background transcription finishes.
+    await TRANSCRIPTIONS.refresh();
+  } catch (_) { toast(t("activity.offline"), "err"); }
+  finally { TRANSCRIPTIONS.setSubmitting(sid, false); }
 };
 
 $("subs-input").onchange = async (e) => {
@@ -2309,6 +2311,10 @@ const AUDIO = AudioPlayer.mount({
     el.innerHTML = tokenHtml(SEGS[i]);
     bindTokenEvents(el, i);
   },
+});
+
+const TRANSCRIPTIONS = TranscriptionActivity.mount({
+  api, t, session: () => SESSION, openSession,
 });
 
 // ---------- init ----------

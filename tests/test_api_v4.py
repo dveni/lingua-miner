@@ -90,8 +90,8 @@ def test_transcribe_rejects_model_of_other_language(tmp_path, monkeypatch):
     sid = main.db.create_session(main.CON, title="x", source_type="upload",
                                  media_path="/nope.mp4", srt_source="none",
                                  model_size="-", duration_secs=0,
-                                 transcript_json="[]")
-    c.post("/api/settings", json={"language": "de"})
+                                 transcript_json="[]", language="de")
+    c.post("/api/settings", json={"language": "ca"})
     r = c.post(f"/api/sessions/{sid}/transcribe", json={"model": "catala-large"})
     assert r.status_code == 400
     c.post("/api/settings", json={"language": "ca"})

@@ -1,11 +1,13 @@
 // Service worker de LinguaMiner. Convierte la web en PWA instalable y da un
 // arranque offline del "shell". Nunca cachea /api/ ni /media/ (dinámicos y
 // pesados). CACHE va atado a la versión de pyproject (lo garantiza test_assets).
-const CACHE = "linguaminer-1.33.2";
+const CACHE = "linguaminer-1.33.3";
 const SHELL = [
   "/",
   "/index.html",
   "/app.js",
+  "/transcription-activity.js",
+  "/transcription-activity.css",
   "/audio-player.js",
   "/audio-player.css",
   "/touch-selection.js",
